@@ -12,6 +12,6 @@ The assumption of Bayesian approach is a linear regression relationship between 
 
 Classification is also involved in this project, since insurance company usually provide different categories of insurance. Therefore, classification methods are useful in this project as well. Methods are Random Forest, Logistic Regression, QDA, LDA, Naïve Bayes, SVM, and KNN.
 
-This repository contains all code for Bayesian part, classification part, and one final report. If you have any question or suggestions, please feel free to contact me. Thank you very much.
+This repository contains all code for Bayesian part, [classification part](), and one [final report](https://github.com/lzykaren/Bayesian-Statistics-Insurance-Charge/blob/master/Bayesian%20Final%20Report.pdf). If you have any question or suggestions, please feel free to contact me. Thank you very much.
 
 My email address: ziyanlin3@gmail.com
