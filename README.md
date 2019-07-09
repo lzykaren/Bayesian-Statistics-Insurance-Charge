@@ -1,6 +1,8 @@
 # Bayesian-Statistics-Insurance-Charge
 
-Hello! This is Ziyan Lin, a graduate student from Johns Hopkins University, majoring in applied math and statistics.
+Hello! 
+
+This is Ziyan Lin, a graduate student from Johns Hopkins University, majoring in applied math and statistics.
 
 In this repository, there is a group project developed by Bayesian statistics. Group members are Mingzhong Gao, Chenyang Li, Ziyan Lin, Han Wang, and Weizhuo Wang.
 
