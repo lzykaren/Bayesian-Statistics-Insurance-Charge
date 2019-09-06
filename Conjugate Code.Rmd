@@ -1,0 +1,88 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+library(caret)
+insurance = read.csv("insurance.csv", header = T)
+insurance$children = as.factor(insurance$children)
+insurance$smoker = as.factor(ifelse(insurance$smoker=="yes",1,0))
+insurance$sex = as.factor(ifelse(insurance$sex=="male", 1, 0))
+insurance$region = as.factor(ifelse(insurance$region=="northeast", 1, 
+                ifelse(insurance$region=="northwest", 2, 
+                       ifelse(insurance$region=="southeast", 3, 4))))
+insurance$smoker_y= ifelse(insurance$smoker=="1",1,0)
+insurance$smoker_n= ifelse(insurance$smoker=="0",1,0)
+insurance$sex_m = ifelse(insurance$sex=="1", 1, 0)
+insurance$sex_f = ifelse(insurance$sex=="0", 1, 0)
+insurance$region_ne = ifelse(insurance$region=="1", 1, 0)
+insurance$region_nw = ifelse(insurance$region=="2", 1, 0)
+insurance$region_se = ifelse(insurance$region=="3", 1, 0)
+insurance$region_sw = ifelse(insurance$region=="4", 1, 0)
+insurance$children0 = ifelse(insurance$children=="0", 1, 0)
+insurance$children1 = ifelse(insurance$children=="1", 1, 0)
+insurance$children2 = ifelse(insurance$children=="2", 1, 0)
+insurance$children3 = ifelse(insurance$children=="3", 1, 0)
+insurance$children4 = ifelse(insurance$children=="4", 1, 0)
+insurance$children5 = ifelse(insurance$children=="5", 1, 0)
+insurance$charges_bi = ifelse(insurance$charges >= 14000, 1, 0)
+insurance$lcharges = log(insurance$charges)
+
+set.seed(10000)
+insurance_idx = createDataPartition(insurance$charges, p = 0.8, list = FALSE)
+insurance_trn = insurance[insurance_idx, ]
+insurance_tst = insurance[-insurance_idx, ]
+```
+
+```{r}
+library(MASS)
+summary(stepAIC(lm(lcharges~(age+sex+bmi+smoker+children+region)*(age+sex+bmi+smoker+children+region), data=insurance_trn), k = log(nrow(insurance_trn)), direction = "backward", trace = F))
+
+c = summary(lm(lcharges ~ age + sex + bmi + smoker + children + region + age*smoker + age*children + bmi*smoker, data = insurance_trn))$coef[,1]
+sum((Y - X %*% c)^2)/n
+```
+
+```{r}
+library(mvtnorm)
+n = nrow(insurance_trn)
+Y = insurance_trn$lcharges
+X = cbind(rep(1,n), insurance_trn$age,insurance_trn$sex_m, insurance_trn$bmi, insurance_trn$smoker_y, insurance_trn$children1, insurance_trn$children2, insurance_trn$children3, insurance_trn$children4, insurance_trn$children5, insurance_trn$region_nw, insurance_trn$region_se, insurance_trn$region_sw, insurance_trn$age*insurance_trn$smoker_y, insurance_trn$age*insurance_trn$children1, insurance_trn$age*insurance_trn$children2, insurance_trn$age*insurance_trn$children3, insurance_trn$age*insurance_trn$children4, insurance_trn$age*insurance_trn$children5, insurance_trn$bmi*insurance_trn$smoker_y)
+```
+
+```{r}
+posterior = function(p, X){
+  a_0 = b_0 = 2
+  B_0 = rep(0,p)
+  V_0 = diag(10^2, nrow = p)
+  
+  s2 = rep(0,1000)
+  BETA = matrix(0,nrow=1000, ncol=p)
+  V_1 = rep(0,1000)
+  for (i in 1:1000){
+     B_1 = solve(solve(V_0)+t(X)%*%X)%*%(solve(V_0)%*%B_0+t(X)%*%Y)
+     a = a_0+n/2
+     b = b_0 + 1/2*(t(B_0)%*%solve(V_0)%*%B_0 + t(Y)%*%Y - t(B_1)%*%(solve(V_0)+(t(X)%*%X))%*%B_1)
+     s2[i] = 1/rgamma(1, a, b)
+     BETA[i,] = rmvnorm(1, B_1, s2[i]*solve(solve(V_0)+(t(X)%*%X)))
+  }
+  return(BETA)
+}
+
+BETA_bic = posterior(p = ncol(X), X)
+
+colMeans(BETA_bic)
+sum((Y - X %*% colMeans(BETA_bic))^2)/n
+
+par(mfrow=c(2,2))
+hist(BETA_bic[,1], probability = T, main = "BIC Model",xlab = "BETA_1", col = "orange")
+lines(density(BETA_bic[,1]), lwd = 2)
+hist(BETA_bic[,2], probability = T, main = "BIC Model",xlab = "BETA_2", col = "orange")
+lines(density(BETA_bic[,2]), lwd = 2)
+hist(BETA_bic[,3], probability = T, main = "BIC Model",xlab = "BETA_3", col = "orange")
+lines(density(BETA_bic[,3]), lwd = 2)
+hist(BETA_bic[,4], probability = T, main = "BIC Model",xlab = "BETA_4", col = "orange")
+lines(density(BETA_bic[,4]), lwd = 2)
+```

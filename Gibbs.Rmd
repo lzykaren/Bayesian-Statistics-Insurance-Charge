@@ -1,0 +1,129 @@
+---
+title: "Project_Gibbs"
+author: "Weizhuo Wang"
+date: "12/17/2018"
+output: html_document
+---
+
+```{r}
+library(caret)
+insurance = read.csv("insurance.csv", header = T)
+insurance$children = as.factor(insurance$children)
+insurance$smoker = as.factor(ifelse(insurance$smoker=="yes",1,0))
+insurance$sex = as.factor(ifelse(insurance$sex=="male", 1, 0))
+insurance$region = as.factor(ifelse(insurance$region=="northeast", 1, 
+                                    ifelse(insurance$region=="northwest", 2, 
+                                           ifelse(insurance$region=="southeast", 3, 4))))
+insurance$smoker_y= ifelse(insurance$smoker=="1",1,0)
+insurance$smoker_n= ifelse(insurance$smoker=="0",1,0)
+insurance$sex_m = ifelse(insurance$sex=="male", 1, 0)
+insurance$sex_f = ifelse(insurance$sex=="female", 1, 0)
+insurance$region_ne = ifelse(insurance$region=="northeast", 1, 0)
+insurance$region_nw = ifelse(insurance$region=="northwest", 1, 0)
+insurance$region_se = ifelse(insurance$region=="southeast", 1, 0)
+insurance$region_sw = ifelse(insurance$region=="southwest", 1, 0)
+insurance$children0 = ifelse(insurance$children=="0", 1, 0)
+insurance$children1 = ifelse(insurance$children=="1", 1, 0)
+insurance$children2 = ifelse(insurance$children=="2", 1, 0)
+insurance$children3 = ifelse(insurance$children=="3", 1, 0)
+insurance$children4 = ifelse(insurance$children=="4", 1, 0)
+insurance$children5 = ifelse(insurance$children=="5", 1, 0)
+
+set.seed(100)
+insurance_idx = createDataPartition(insurance$charges, p = 0.8, list = FALSE)
+insurance_trn = insurance[insurance_idx, ]
+insurance_tst = insurance[-insurance_idx, ]
+
+m = nrow(insurance_trn)
+m2 = nrow(insurance_tst)
+y = insurance_trn$charges
+X_bic = cbind(rep(1,m), insurance_trn$age, insurance_trn$sex_m, insurance_trn$bmi, insurance_trn$smoker_y, 
+              insurance_trn$children1, insurance_trn$children2, insurance_trn$children3, insurance_trn$children4, insurance_trn$children5,
+              insurance_trn$region_nw, insurance_trn$region_se, insurance_trn$region_sw,
+              insurance_trn$age*insurance_trn$smoker_y, insurance_trn$age*insurance_trn$children1,
+              insurance_trn$age*insurance_trn$children2, insurance_trn$age*insurance_trn$children3,
+              insurance_trn$age*insurance_trn$children4, insurance_trn$age*insurance_trn$children5,
+              insurance_trn$bmi*insurance_trn$smoker_y)
+X_tst = cbind(rep(1,m2), insurance_tst$age, insurance_tst$sex_m, insurance_tst$bmi, insurance_tst$smoker_y, 
+              insurance_tst$children1, insurance_tst$children2, insurance_tst$children3, insurance_tst$children4, insurance_tst$children5,
+              insurance_tst$region_nw, insurance_tst$region_se, insurance_tst$region_sw,
+              insurance_tst$age*insurance_tst$smoker_y, insurance_tst$age*insurance_tst$children1,
+              insurance_tst$age*insurance_tst$children2, insurance_tst$age*insurance_tst$children3,
+              insurance_tst$age*insurance_tst$children4, insurance_tst$age*insurance_tst$children5,
+              insurance_tst$bmi*insurance_tst$smoker_y)
+
+n = m
+X = X_bic[1:n, ]
+Y = y[1:n]
+Y_tst = insurance_tst$charges
+Y = log(Y)
+Y_tst = log(Y_tst)
+
+ite = 10000
+sigma0_s = 10
+nbeta = ncol(X_bic)
+BETA = matrix(NA, nrow = nbeta, ncol = ite)
+SIGMA_s = rep(NA, ite)
+beta = rep(0, nbeta)
+sigma_s = 1
+for (i in 1:ite)
+{
+  for (j in 1:nbeta)
+  {
+    a = sum(X[, j] ^ 2)
+    b = 0
+    for (k in n)
+    {
+      b = b + X[k, j] * (X[k, ] %*% beta - X[k, j] * beta[j] - Y[k])
+    }
+    a_tilde = sigma0_s * a + sigma_s
+    b_tilde = sigma0_s * b / a_tilde
+    mu = -b_tilde
+    sigma_tilde_s = 2 * sigma0_s * sigma_s / a_tilde
+    beta[j] = rnorm(1, mu, sigma_tilde_s)
+  }
+  alpha_bar = n / 2 + 100
+  beta_bar = t(Y - X %*% beta) %*% (Y - X %*% beta) / 2 + 100
+  sigma_s = 1/rgamma(1, alpha_bar, beta_bar)
+  BETA[, i] = beta
+  SIGMA_s[i] = sigma_s
+}
+
+beta_mean = rep(NA, nbeta)
+for (i in 1:nbeta)
+{
+  beta_mean[i] = mean(BETA[i, ite / 2:ite])
+}
+residual_trn_mean = sum((Y - X %*% beta_mean) ^ 2) / n
+residual_tst_mean = sum((Y_tst - X_tst %*% beta_mean) ^ 2) / m2
+residual_tst = 0
+for (i in 1:n)
+{
+  residual_tst = residual_tst + sum((Y_tst - X_tst %*% BETA[, i]) ^ 2)
+}
+residual_tst = sqrt(residual_tst / m2)
+print(c(residual_trn_mean, residual_tst_mean))
+
+par(mfrow=c(3,2))
+hist(BETA[1, ], breaks=40,xlab=expression(BETA[1, ]), prob=T, 
+     main=expression(paste("Posterior Distribution of ", BETA[1, ])), col="orange")
+lines(density(BETA[1, ]), lwd=2, col="black")
+hist(BETA[2, ], breaks=40,xlab=expression(BETA[2, ]), prob=T, 
+     main=expression(paste("Posterior Distribution of ", BETA[2, ])), col="orange")
+lines(density(BETA[2, ]), lwd=2, col="black")
+hist(BETA[3, ], breaks=40,xlab=expression(BETA[3, ]), prob=T, 
+     main=expression(paste("Posterior Distribution of ", BETA[3, ])), col="orange")
+lines(density(BETA[3, ]), lwd=2, col="black")
+hist(BETA[4, ], breaks=40,xlab=expression(BETA[4, ]), prob=T, 
+     main=expression(paste("Posterior Distribution of ", BETA[4, ])), col="orange")
+lines(density(BETA[4, ]), lwd=2, col="black")
+hist(BETA[5, ], breaks=40,xlab=expression(BETA[5, ]), prob=T, 
+     main=expression(paste("Posterior Distribution of ", BETA[5 ])), col="orange")
+lines(density(BETA[5, ]), lwd=2, col="black")
+hist(SIGMA_s, breaks=40,xlab=expression(SIGMA_s), prob=T, 
+     main=expression(paste("Posterior Distribution of ", SIGMA_s)), col="orange")
+lines(density(SIGMA_s), lwd=2, col="black")
+
+
+```
+
